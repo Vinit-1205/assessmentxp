@@ -1,0 +1,124 @@
+{
+  "name": "Institution",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "logo_url": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "address": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "student_volume": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "Starter",
+        "Professional",
+        "Enterprise"
+      ],
+      "default": "Starter"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Pending",
+        "Suspended",
+        "Inactive"
+      ],
+      "default": "Active"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name",
+    "slug",
+    "country",
+    "phone"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "activeRole": "super_admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin"
+              ]
+            }
+          }
+        },
+        {
+          "id": "{{user.institution_id}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "activeRole": "super_admin"
+      }
+    }
+  }
+}

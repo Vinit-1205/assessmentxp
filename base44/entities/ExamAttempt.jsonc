@@ -1,0 +1,136 @@
+{
+  "name": "ExamAttempt",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "exam_id": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "randomized_questions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "answers": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false
+    },
+    "time_left": {
+      "type": "number",
+      "default": 3600
+    }
+  },
+  "required": [
+    "tenant_id",
+    "exam_id",
+    "candidate_id",
+    "randomized_questions"
+  ],
+  "rls": {
+    "create": {
+      "data.tenant_id": "{{user.institution_id}}",
+      "data.candidate_id": "{{user.id}}",
+      "user_condition": {
+        "activeRole": "candidate"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.tenant_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        },
+        {
+          "$and": [
+            {
+              "data.tenant_id": "{{user.institution_id}}"
+            },
+            {
+              "data.candidate_id": "{{user.id}}"
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.tenant_id": "{{user.institution_id}}"
+            },
+            {
+              "data.candidate_id": "{{user.id}}"
+            }
+          ]
+        },
+        {
+          "$and": [
+            {
+              "data.tenant_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.tenant_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

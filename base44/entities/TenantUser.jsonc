@@ -1,0 +1,140 @@
+{
+  "name": "TenantUser",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "institution_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "super_admin",
+        "admin",
+        "tenant_admin",
+        "tenant_executive",
+        "candidate",
+        "proctor",
+        "examiner"
+      ]
+    },
+    "department": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "institution_id",
+    "role",
+    "email"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "activeRole": {
+          "$in": [
+            "super_admin",
+            "admin",
+            "tenant_admin"
+          ]
+        }
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "super_admin",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive",
+                    "proctor",
+                    "examiner"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "data.user_id": "{{user.id}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "super_admin",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "super_admin",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

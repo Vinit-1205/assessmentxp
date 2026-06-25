@@ -1,0 +1,155 @@
+{
+  "name": "Result",
+  "type": "object",
+  "properties": {
+    "institution_id": {
+      "type": "string"
+    },
+    "exam_id": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "score": {
+      "type": "number"
+    },
+    "total_possible_score": {
+      "type": "number"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "academic_score": {
+      "type": "number"
+    },
+    "integrity_score": {
+      "type": "number"
+    },
+    "final_result_status": {
+      "type": "string",
+      "enum": [
+        "Auto-Approved Pass",
+        "Pending Admin Review",
+        "Failed"
+      ]
+    },
+    "certificate_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "institution_id",
+    "exam_id",
+    "candidate_id"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "activeRole": "system"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "$or": [
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_admin"
+                  }
+                },
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_executive"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "data.candidate_id": "{{user.id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "candidate"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

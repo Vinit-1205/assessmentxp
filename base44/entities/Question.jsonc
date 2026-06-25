@@ -1,0 +1,193 @@
+{
+  "name": "Question",
+  "type": "object",
+  "properties": {
+    "institution_id": {
+      "type": "string"
+    },
+    "exam_id": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "MCQ",
+        "Short Answer",
+        "Coding Problem"
+      ],
+      "default": "MCQ"
+    },
+    "section": {
+      "type": "string",
+      "default": "Section A"
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "correct_option_index": {
+      "type": "number"
+    },
+    "marks_awarded": {
+      "type": "number",
+      "default": 1
+    },
+    "time_limit": {
+      "type": "number"
+    },
+    "explanation": {
+      "type": "string"
+    },
+    "is_required": {
+      "type": "boolean",
+      "default": true
+    },
+    "subject_tag": {
+      "type": "string"
+    },
+    "difficulty_level": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "institution_id",
+    "exam_id",
+    "text"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive",
+                    "candidate"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

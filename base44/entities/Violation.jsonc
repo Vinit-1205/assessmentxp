@@ -1,0 +1,126 @@
+{
+  "name": "Violation",
+  "type": "object",
+  "properties": {
+    "institution_id": {
+      "type": "string"
+    },
+    "exam_id": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "attempt_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "media_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "institution_id",
+    "exam_id",
+    "candidate_id",
+    "attempt_id",
+    "type",
+    "timestamp"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "activeRole": "system"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

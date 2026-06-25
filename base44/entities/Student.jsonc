@@ -1,0 +1,163 @@
+{
+  "name": "Student",
+  "type": "object",
+  "properties": {
+    "institution_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "student_identifier": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "graduated",
+        "suspended"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "institution_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "$or": [
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_admin"
+                  }
+                },
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_executive"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "$or": [
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_admin"
+                  }
+                },
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_executive"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "data.user_id": "{{user.id}}"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "$or": [
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_admin"
+                  }
+                },
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_executive"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@300;400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 212 100% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 212 100% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 212 100% 14%;
+    --primary: 212 100% 14%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 185 22% 21%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 212 20% 40%;
+    --accent: 345 82% 35%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 345 82% 35%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 212 100% 14%;
+    --radius: 0.5rem;
+    
+    --chart-1: 212 100% 14%;
+    --chart-2: 345 82% 35%;
+    --chart-3: 157 28% 61%;
+    --chart-4: 193 38% 47%;
+    --chart-5: 134 32% 69%;
+    
+    --sidebar-background: 212 100% 14%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 212 100% 14%;
+    --sidebar-accent: 345 82% 35%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 212 100% 20%;
+    --sidebar-ring: 212 100% 30%;
+
+    --font-heading: 'Merriweather', serif;
+    --font-body: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}

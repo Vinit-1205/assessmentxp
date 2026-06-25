@@ -1,0 +1,186 @@
+{
+  "name": "BankQuestion",
+  "type": "object",
+  "properties": {
+    "institution_id": {
+      "type": "string"
+    },
+    "question_text": {
+      "type": "string"
+    },
+    "option_a": {
+      "type": "string"
+    },
+    "option_b": {
+      "type": "string"
+    },
+    "option_c": {
+      "type": "string"
+    },
+    "option_d": {
+      "type": "string"
+    },
+    "correct_option": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    },
+    "subject_tag": {
+      "type": "string"
+    },
+    "difficulty_level": {
+      "type": "string",
+      "enum": [
+        "Easy",
+        "Medium",
+        "Hard"
+      ]
+    },
+    "marks_awarded": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "institution_id",
+    "question_text",
+    "option_a",
+    "option_b",
+    "option_c",
+    "option_d",
+    "correct_option"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

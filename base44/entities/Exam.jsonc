@@ -1,0 +1,222 @@
+{
+  "name": "Exam",
+  "type": "object",
+  "properties": {
+    "institution_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "course_id": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "default": 60
+    },
+    "passing_threshold": {
+      "type": "number",
+      "default": 50
+    },
+    "total_marks": {
+      "type": "number",
+      "default": 0
+    },
+    "shuffle_questions": {
+      "type": "boolean",
+      "default": true
+    },
+    "shuffle_options": {
+      "type": "boolean",
+      "default": true
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "published",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "start_date": {
+      "type": "string"
+    },
+    "start_time": {
+      "type": "string"
+    },
+    "end_date": {
+      "type": "string"
+    },
+    "end_time": {
+      "type": "string"
+    },
+    "max_attempts": {
+      "type": "number",
+      "default": 1
+    },
+    "access_code": {
+      "type": "string"
+    },
+    "allow_early_submission": {
+      "type": "boolean",
+      "default": true
+    },
+    "allow_late_join": {
+      "type": "boolean",
+      "default": false
+    },
+    "proctoring_strictness": {
+      "type": "string",
+      "enum": [
+        "Lenient",
+        "Standard",
+        "Strict",
+        "Ultra"
+      ],
+      "default": "Standard"
+    },
+    "proctoring_modules": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "institution_id",
+    "title"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive",
+                    "candidate"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": {
+              "$in": [
+                "admin",
+                "super_admin",
+                "system"
+              ]
+            }
+          }
+        },
+        {
+          "$and": [
+            {
+              "data.institution_id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": {
+                  "$in": [
+                    "tenant_admin",
+                    "tenant_executive"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

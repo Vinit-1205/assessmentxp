@@ -1,0 +1,123 @@
+{
+  "name": "Tenant",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the tenant organization"
+    },
+    "domain": {
+      "type": "string",
+      "description": "Custom domain or subdomain for the tenant"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    },
+    "logo_url": {
+      "type": "string"
+    },
+    "badge_url": {
+      "type": "string"
+    },
+    "signature_url": {
+      "type": "string"
+    },
+    "background_url": {
+      "type": "string"
+    },
+    "border_color": {
+      "type": "string",
+      "default": "#000000"
+    },
+    "primary_color": {
+      "type": "string",
+      "default": "#1e3a8a"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "activeRole": "super_admin"
+      }
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "id": "{{user.institution_id}}"
+            },
+            {
+              "$or": [
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_admin"
+                  }
+                },
+                {
+                  "user_condition": {
+                    "activeRole": "tenant_executive"
+                  }
+                },
+                {
+                  "user_condition": {
+                    "activeRole": "candidate"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "activeRole": "super_admin"
+          }
+        },
+        {
+          "user_condition": {
+            "activeRole": "admin"
+          }
+        },
+        {
+          "$and": [
+            {
+              "id": "{{user.institution_id}}"
+            },
+            {
+              "user_condition": {
+                "activeRole": "tenant_admin"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "activeRole": "super_admin"
+      }
+    }
+  }
+}
