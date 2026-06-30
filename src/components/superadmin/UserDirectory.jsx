@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ function exportToCSV(rows) {
     r.global_role,
     r.institution_name,
     (r.tenant_roles || []).join(' | '),
-    new Date(r.created_date).toLocaleDateString(),
+    new Date(r.created_at || r.created_date).toLocaleDateString(),
   ].map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
 
   const csv = [headers.join(','), ...lines].join('\n');
@@ -49,8 +49,8 @@ export default function UserDirectory() {
   const { data, isLoading } = useQuery({
     queryKey: ['user_directory'],
     queryFn: async () => {
-      const res = await base44.functions.invoke('getUserDirectory', {});
-      return res.data;
+      const res = await apiClient.get('/user-directory');
+      return res;
     },
   });
 

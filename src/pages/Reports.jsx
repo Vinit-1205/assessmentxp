@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, AlertTriangle, FileText, CheckCircle2 } from "lucide-react";
@@ -11,19 +11,19 @@ export default function Reports() {
 
   const { data: exams, isLoading: loadingExams } = useQuery({
     queryKey: ['exams', tenantId],
-    queryFn: () => base44.entities.Exam.filter({ institution_id: tenantId }),
+    queryFn: () => entities.Exam.filter({ institution_id: tenantId }),
     enabled: !!tenantId,
   });
 
   const { data: violations, isLoading: loadingViolations } = useQuery({
     queryKey: ['violations', tenantId],
-    queryFn: () => base44.entities.Violation.filter({ institution_id: tenantId }),
+    queryFn: () => entities.Violation.filter({ institution_id: tenantId }),
     enabled: !!tenantId,
   });
 
   const { data: results, isLoading: loadingResults } = useQuery({
     queryKey: ['results', tenantId],
-    queryFn: () => base44.entities.Result.filter({ institution_id: tenantId }),
+    queryFn: () => entities.Result.filter({ institution_id: tenantId }),
     enabled: !!tenantId,
   });
 
@@ -33,17 +33,17 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Reports & Analytics</h1>
           <p className="text-muted-foreground mt-1">Exportable audit reports, violation summaries, and exam analytics.</p>
         </div>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2 shrink-0">
           <Download className="w-4 h-4" /> Export All Data
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">

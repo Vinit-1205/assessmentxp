@@ -1,34 +1,51 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
+import { apiClient } from '@/api/apiClient';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import ExamEditor from '@/components/exam-builder/ExamEditor';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from 'sonner';
 
 export default function ExamBuilder() {
+  const queryClient = useQueryClient();
   const [selectedExamId, setSelectedExamId] = useState(null);
   const { tenantId } = useTenantContext();
+  const [examToDelete, setExamToDelete] = useState(null);
 
   const { data: exams, isLoading } = useQuery({
     queryKey: ['exams', tenantId],
-    queryFn: async () => await base44.entities.Exam.filter({ institution_id: tenantId }, '-created_date'),
+    queryFn: async () => await entities.Exam.filter({ institution_id: tenantId }, '-created_at'),
     enabled: !!tenantId,
   });
 
   const createExamMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('createExam', {
+      const response = await apiClient.post('/create-exam', {
         title: 'New Exam',
         course_id: '',
         institution_id: tenantId,
         status: 'draft'
       });
-      return response?.data?.exam || response?.exam;
+      return response?.exam || response;
     },
     onSuccess: (exam) => {
       setSelectedExamId(exam.id);
+    }
+  });
+
+  const deleteExamMutation = useMutation({
+    mutationFn: (id) => entities.Exam.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['exams', tenantId] });
+      toast.success('Exam deleted successfully');
+      setExamToDelete(null);
+    },
+    onError: (err) => {
+      toast.error('Failed to delete exam: ' + err.message);
     }
   });
 
@@ -44,7 +61,8 @@ export default function ExamBuilder() {
           <p className="text-muted-foreground mt-1">Create and manage your assessments.</p>
         </div>
         <Button onClick={() => createExamMutation.mutate()} disabled={createExamMutation.isPending} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
-          <Plus className="w-4 h-4" /> Create New Exam
+          {createExamMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          Create New Exam
         </Button>
       </div>
 
@@ -55,12 +73,25 @@ export default function ExamBuilder() {
           <p className="text-muted-foreground col-span-full">No exams created yet. Click "Create New Exam" to begin.</p>
         ) : (
           exams?.map(exam => (
-            <Card key={exam.id} className="cursor-pointer hover:shadow-md transition-shadow border-slate-200" onClick={() => setSelectedExamId(exam.id)}>
-              <CardHeader>
-                <CardTitle className="text-xl">{exam.title}</CardTitle>
-                <p className="text-sm text-muted-foreground">{new Date(exam.created_date).toLocaleDateString()}</p>
+            <Card key={exam.id} className="cursor-pointer hover:shadow-md transition-shadow border-slate-200 relative flex flex-col justify-between" onClick={() => setSelectedExamId(exam.id)}>
+              <CardHeader className="flex flex-row justify-between items-start space-y-0 pb-2">
+                <div className="space-y-1">
+                  <CardTitle className="text-xl line-clamp-1">{exam.title}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{new Date(exam.created_date).toLocaleDateString()}</p>
+                </div>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 -mt-1 -mr-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExamToDelete(exam);
+                  }}
+                >
+                  <Trash2 className="w-4.5 h-4.5" />
+                </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="mt-2">
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{exam.description || 'No description'}</p>
                 <div className="flex flex-wrap gap-2 text-xs">
                   <span className={`px-2 py-1 rounded-full font-medium ${
@@ -80,6 +111,31 @@ export default function ExamBuilder() {
           ))
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!examToDelete} onOpenChange={(open) => !open && setExamToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Exam</DialogTitle>
+          </DialogHeader>
+          <div className="pt-2 space-y-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to delete the exam <span className="font-semibold text-foreground">"{examToDelete?.title}"</span>? This will permanently delete the exam, its questions, settings, and any student attempts or scores associated with it. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setExamToDelete(null)}>Cancel</Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => deleteExamMutation.mutate(examToDelete.id)} 
+                disabled={deleteExamMutation.isPending}
+              >
+                {deleteExamMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

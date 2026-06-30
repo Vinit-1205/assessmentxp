@@ -147,7 +147,7 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* ---------- PUBLIC ROUTES (no auth gate) ---------- */}
             <Route path="/" element={<PublicRoot />} />

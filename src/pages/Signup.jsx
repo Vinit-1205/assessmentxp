@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,12 @@ export default function Signup() {
     try {
       const generatedTempPassword = crypto.randomUUID() + 'Aa1!';
       setTempPassword(generatedTempPassword);
-      await base44.auth.register({ email, password: generatedTempPassword });
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password: generatedTempPassword,
+        options: { data: { full_name: '' } },
+      });
+      if (signUpError) throw signUpError;
       setStep(2);
       toast.success("Verification code sent to your email.");
     } catch (err) {
@@ -48,14 +53,21 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      await base44.auth.verifyOtp({ email, otpCode });
-      await base44.auth.loginViaEmailPassword(email, tempPassword);
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: 'signup',
+      });
+      if (verifyError) throw verifyError;
 
-      // Confirm the login token is actually live before navigating away.
-      // Without this, the hard redirect can fire before the token is attached
-      // to the SDK client, leaving /setup unauthenticated (updateMe -> 401).
-      const loggedInUser = await base44.auth.me();
-      console.log("[Signup] Logged-in session confirmed:", loggedInUser?.email, "id:", loggedInUser?.id);
+      // Sign in with the temp password to establish a live session
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: tempPassword,
+      });
+      if (signInError) throw signInError;
+
+      console.log("[Signup] Logged-in session confirmed");
 
       if (!loggedInUser) {
         throw new Error("Login did not establish a session. Please try again.");
@@ -77,7 +89,8 @@ export default function Signup() {
     setError("");
     setResending(true);
     try {
-      await base44.auth.resendOtp(email);
+      const { error: resendError } = await supabase.auth.resend({ type: 'signup', email });
+      if (resendError) throw resendError;
       setOtpCode("");
       toast.success("New verification code sent to your email.");
     } catch (err) {

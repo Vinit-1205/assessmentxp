@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
+import { entities } from '@/api/entities';
+import { apiClient } from '@/api/apiClient';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, AlertCircle, Eye, Check } from 'lucide-react';
@@ -17,13 +19,14 @@ export default function CandidateExam() {
   const { examId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
+
   const [step, setStep] = useState(1);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(3600);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showWarning, setShowWarning] = useState(false);
+  const [violationCount, setViolationCount] = useState(0);
 
   const answersRef = useRef(answers);
   const timeLeftRef = useRef(timeLeft);
@@ -38,19 +41,19 @@ export default function CandidateExam() {
   const postViolationChunksRef = useRef(0);
   const violationTypeRef = useRef('');
 
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
-  const tenantId = user?.tenant_id;
+  const { user } = useAuth();
+  const tenantId = user?.tenant_id || user?.institution_id;
 
   const { data: exam, isLoading: isLoadingExam } = useQuery({
     queryKey: ['exam', examId],
-    queryFn: () => base44.entities.Exam.get(examId),
+    queryFn: () => entities.Exam.get(examId),
   });
 
   const { data: attempt, isLoading: isLoadingAttempt } = useQuery({
     queryKey: ['examAttempt', examId, user?.id],
     queryFn: async () => {
       if (!user?.id || !examId) return null;
-      const attempts = await base44.entities.ExamAttempt.filter({ exam_id: examId, candidate_id: user.id });
+      const attempts = await entities.ExamAttempt.filter({ exam_id: examId, candidate_id: user.id });
       return attempts.length > 0 ? attempts[0] : null;
     },
     enabled: !!user?.id && !!examId
@@ -81,20 +84,20 @@ export default function CandidateExam() {
         setIsInitializing(false);
       } else {
         try {
-          const rawQuestions = await base44.entities.Question.filter({ exam_id: examId });
+          const rawQuestions = await entities.Question.filter({ exam_id: examId });
           if (rawQuestions.length === 0) {
             toast.error("This exam has no questions yet.");
             navigate('/');
             return;
           }
-          const res = await base44.functions.invoke('randomizeExam', { 
+          const res = await apiClient.post('/randomize-exam', { 
             questions: rawQuestions,
             shuffle_questions: exam.shuffle_questions !== false,
             shuffle_options: exam.shuffle_options !== false
           });
-          const randomized = res.data.questions;
+          const randomized = res.questions || res.data?.questions;
           
-          const newAttempt = await base44.entities.ExamAttempt.create({
+          const newAttempt = await entities.ExamAttempt.create({
             tenant_id: tenantId,
             exam_id: examId,
             candidate_id: user.id,
@@ -140,7 +143,7 @@ export default function CandidateExam() {
     
     const saveInterval = setInterval(async () => {
       try {
-        await base44.entities.ExamAttempt.update(attempt.id, { 
+        await entities.ExamAttempt.update(attempt.id, { 
           answers: answersRef.current,
           time_left: timeLeftRef.current
         });
@@ -201,21 +204,26 @@ export default function CandidateExam() {
   const finalizeViolationVideo = async () => {
     try {
       const blob = new Blob(violationChunksRef.current, { type: 'video/webm' });
-      const file = new File([blob], 'violation.webm', { type: 'video/webm' });
-      
-      const uploadRes = await base44.integrations.Core.UploadFile({ file });
-      
-      await base44.entities.Violation.create({
+
+      // Convert to base64 and let the backend upload with service-role key
+      const reader = new FileReader();
+      const videoBase64 = await new Promise((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      await apiClient.post('/violations', {
         tenant_id: tenantId,
         exam_id: examId,
         candidate_id: user.id,
         attempt_id: attempt.id,
         type: `Critical Violation: ${violationTypeRef.current}`,
         timestamp: new Date().toISOString(),
-        media_url: uploadRes.file_url
+        image_base64: videoBase64  // backend uploads to storage and saves URL
       });
     } catch (error) {
-      console.error("Failed to finalize violation video", error);
+      console.error('Failed to finalize violation video', error);
     } finally {
       violationTriggeredRef.current = false;
       rollingChunksRef.current = [];
@@ -223,43 +231,137 @@ export default function CandidateExam() {
     }
   };
 
-  // Soft-lockdown: detect focus loss
+  const lastFrameRef = useRef(null);
+
+  // Capture a JPEG snapshot from the live webcam feed.
+  // Returns a base64 data-URL string (e.g. "data:image/jpeg;base64,...") or null on failure.
+  // The BACKEND handles the Storage upload using the service-role key (bypasses RLS).
+  const captureCameraSnapshot = () => {
+    return new Promise((resolve) => {
+      try {
+        const video = videoRef.current;
+        if (!video) { resolve(null); return; }
+
+        // Fall back to 640x480 if dimensions are not loaded or suspended
+        const w = video.videoWidth || 640;
+        const h = video.videoHeight || 480;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        // Draw the current video frame onto the canvas
+        ctx.drawImage(video, 0, 0, w, h);
+
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(null); return; }
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result); // data URL
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(blob);
+        }, 'image/jpeg', 0.80);
+      } catch (err) {
+        console.error('[captureCameraSnapshot] failed:', err);
+        resolve(null);
+      }
+    });
+  };
+
+  // Cache the webcam frame periodically so we always have a recent frame even if the tab is hidden or blurred.
+  useEffect(() => {
+    if (isInitializing || attempt?.completed || step !== 4) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const frame = await captureCameraSnapshot();
+        if (frame) {
+          lastFrameRef.current = frame;
+        }
+      } catch (e) {
+        // Silent ignore
+      }
+    }, 2000); // every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isInitializing, attempt, step]);
+
+  // Soft-lockdown: detect focus loss + prevent accidental page kill.
+  // Every tab switch / focus loss is recorded as a violation.
+  // The webcam snapshot is captured and sent to the BACKEND for storage upload.
   useEffect(() => {
     if (isInitializing || !attempt || attempt.completed || step !== 4) return;
 
-    const handleFocusLoss = () => {
+    // Prevent browser from leaving/reloading the page
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = 'Your exam is in progress. Leaving this page will interrupt your session.';
+      return e.returnValue;
+    };
+
+    // Snapshot + DB write on every focus-loss event
+    const recordViolation = async (violationType) => {
+      // Increment counter and show overlay immediately (sync, no await)
+      setViolationCount(prev => prev + 1);
       if (!showWarningRef.current) {
         setShowWarning(true);
-        base44.entities.Violation.create({
-          tenant_id: tenantId,
-          exam_id: examId,
-          candidate_id: user.id,
-          attempt_id: attempt.id,
-          type: 'Focus Loss Violation',
-          timestamp: new Date().toISOString()
-        }).catch(console.error);
       }
+
+      let imageBase64 = null;
+      let captureErrorMsg = '';
+
+      try {
+        // Try fresh capture first
+        imageBase64 = await captureCameraSnapshot();
+        if (!imageBase64 && lastFrameRef.current) {
+          imageBase64 = lastFrameRef.current;
+          captureErrorMsg = ' (Used cached frame)';
+        } else if (!imageBase64) {
+          captureErrorMsg = ' (No frame available)';
+        }
+      } catch (err) {
+        console.error('[violations] capture error:', err.message);
+        if (lastFrameRef.current) {
+          imageBase64 = lastFrameRef.current;
+          captureErrorMsg = ` (Capture failed, used cached: ${err.message})`;
+        } else {
+          captureErrorMsg = ` (Capture failed: ${err.message})`;
+        }
+      }
+
+      // POST to backend — service-role key handles storage upload + DB insert
+      apiClient.post('/violations', {
+        tenant_id: tenantId,
+        exam_id: examId,
+        candidate_id: user.id,
+        attempt_id: attempt.id,
+        type: violationType + captureErrorMsg,
+        timestamp: new Date().toISOString(),
+        image_base64: imageBase64 || undefined   // backend uploads this to storage
+      }).catch(err => console.error('[violations POST] failed:', err));
     };
 
-    const handleFocusGain = () => {
-      // Intentionally left empty
-    };
-
+    // visibilitychange fires reliably when switching tabs
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        handleFocusLoss();
-      } else {
-        handleFocusGain();
+        recordViolation('Tab Switch Violation');
       }
     };
 
-    window.addEventListener('blur', handleFocusLoss);
-    window.addEventListener('focus', handleFocusGain);
+    // blur fires when focus moves to another app / devtools (tab still visible)
+    const handleBlur = () => {
+      if (!document.hidden) {
+        recordViolation('Window Focus Loss');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('blur', handleBlur);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('blur', handleFocusLoss);
-      window.removeEventListener('focus', handleFocusGain);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('blur', handleBlur);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isInitializing, attempt, tenantId, examId, user?.id, step]);
@@ -271,11 +373,18 @@ export default function CandidateExam() {
   const handleSubmit = async (auto = false) => {
     if (!attempt) return;
     try {
-      await base44.entities.ExamAttempt.update(attempt.id, { 
+      await entities.ExamAttempt.update(attempt.id, { 
         answers: answersRef.current,
         time_left: timeLeftRef.current,
         completed: true
       });
+
+      // Calculate results immediately on the backend — this writes to the results table
+      try {
+        await apiClient.post('/calculate-result', { attempt_id: attempt.id });
+      } catch (err) {
+        console.error("Failed to calculate result on submit", err);
+      }
       
       if (auto) {
         toast.info("Time's up! Exam submitted automatically.");
@@ -304,7 +413,7 @@ export default function CandidateExam() {
     const stats = {
       answered: answeredCount,
       unanswered: randomizedQuestions.length - answeredCount,
-      violations: 0, // Mock for now, would need a fetch
+      violations: violationCount,
       timeTaken: `${Math.floor(((exam?.duration_minutes || 60) * 60 - timeLeft) / 60)}:${String(((exam?.duration_minutes || 60) * 60 - timeLeft) % 60).padStart(2, '0')}`
     };
     return <ExamSubmitted stats={stats} />;
@@ -368,14 +477,32 @@ export default function CandidateExam() {
         <div className="flex flex-1 overflow-hidden relative">
           
           {showWarning && (
-            <div 
-              className="absolute inset-0 z-50 flex items-center justify-center bg-[#A41034] text-white p-6 cursor-pointer" 
-              onClick={() => setShowWarning(false)}
-            >
-              <div className="text-center max-w-2xl">
-                <AlertCircle className="w-24 h-24 mx-auto mb-6 opacity-90" />
-                <h1 className="text-4xl font-bold mb-4">Warning: Navigation away from the exam detected.</h1>
-                <p className="text-xl opacity-80">A Focus Loss Violation has been logged. Click anywhere to return to your exam.</p>
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-6">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-5">
+                  <AlertCircle className="w-9 h-9 text-red-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Tab Switch Detected!</h2>
+                <p className="text-slate-500 text-sm mb-4">
+                  You navigated away from the exam window. This incident has been recorded by the proctoring system.
+                </p>
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-6 inline-block">
+                  <span className="text-red-700 text-sm font-semibold">
+                    ⚠️ Violations recorded: {violationCount}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mb-6">
+                  Your answers and exam progress are safe. Click below to continue.
+                </p>
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl text-base"
+                  onClick={() => {
+                    setShowWarning(false);
+                    showWarningRef.current = false; // Reset so next tab-switch shows overlay again
+                  }}
+                >
+                  Continue Exam
+                </Button>
               </div>
             </div>
           )}

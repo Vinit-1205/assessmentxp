@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
+import { apiClient } from '@/api/apiClient';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,11 +35,11 @@ export default function SetupWizard() {
   useEffect(() => {
     (async () => {
       try {
-        const me = await base44.auth.me();
-        console.log("[SetupWizard] Authenticated user email:", me?.email);
+        const { data: { user: me } } = await supabase.auth.getUser();
+        console.log("[SetupWizard] Authenticated user email loaded");
         if (me?.email) setUserEmail(me.email);
       } catch (err) {
-        console.error("[SetupWizard] Could not fetch user email:", err?.message);
+        console.error("[SetupWizard] Could not load profile user email");
       }
     })();
   }, []);
@@ -83,41 +84,19 @@ export default function SetupWizard() {
     // -------------------------
     // VERIFY AUTH SESSION
     // -------------------------
-    console.log(
-      "[SetupWizard] auth token present:",
-      !!base44.auth.getToken?.()
-    );
+    console.log("[SetupWizard] Checking session...");
 
     let sessionUser = null;
-
     try {
-      sessionUser = await base44.auth.me();
-
-      console.log(
-        "[SetupWizard] base44.auth.me():",
-        sessionUser
-      );
+      const { data: { user: me } } = await supabase.auth.getUser();
+      sessionUser = me;
     } catch (meErr) {
-      console.error(
-        "[SetupWizard] auth.me() failed:",
-        meErr
-      );
+      console.error("[SetupWizard] Could not resolve session");
     }
 
     if (!sessionUser) {
-      console.warn("[SetupWizard] Your login session was not found. Bypassing for testing.");
-      sessionUser = { email: "test-admin@example.com", id: null };
+      throw new Error("You must be logged in to complete setup.");
     }
-
-    console.log(
-      "[SetupWizard] Authenticated User:",
-      sessionUser
-    );
-
-    console.log(
-      "[SetupWizard] User Email:",
-      sessionUser.email
-    );
 
     // -------------------------
     // BUILD PAYLOAD
@@ -146,41 +125,23 @@ export default function SetupWizard() {
       email: sessionUser.email || null
     };
 
-    console.log("Submitting payload:", payload);
-
     // -------------------------
     // UPDATE PASSWORD
     // -------------------------
-    console.log("Updating password...");
-
-    if (sessionUser && sessionUser.id) {
+    if (sessionUser?.id) {
       try {
-        await base44.auth.updateMe({
-          password: newPassword
-        });
-        console.log("Password updated successfully");
+        await supabase.auth.updateUser({ password: newPassword });
       } catch (err) {
-        console.warn("Failed to update password:", err);
+        console.warn("Failed to update password");
       }
-    } else {
-      console.log("Skipping password update (no authenticated user in testing mode)");
     }
 
     // -------------------------
     // CREATE TENANT
     // -------------------------
-    console.log("Creating tenant...");
+    console.log("[SetupWizard] Finalizing account creation...");
 
-    const response =
-      await base44.functions.invoke(
-        "signupTenantAdmin",
-        payload
-      );
-
-    console.log(
-      "Tenant creation response:",
-      response
-    );
+    await apiClient.post('/signup-tenant-admin', payload);
 
     toast.success("Setup complete! Redirecting to your dashboard...");
 
@@ -189,7 +150,7 @@ export default function SetupWizard() {
     try {
       await checkUserAuth();
     } catch (refreshErr) {
-      console.warn("[SetupWizard] Could not refresh auth after setup:", refreshErr);
+      console.warn("[SetupWizard] Could not refresh auth after setup");
     }
 
     setTimeout(() => {
@@ -197,25 +158,7 @@ export default function SetupWizard() {
     }, 1500);
 
   } catch (err) {
-    console.error(
-      "FULL ERROR OBJECT:",
-      err
-    );
-
-    console.error(
-      "BACKEND RESPONSE:",
-      err?.response?.data
-    );
-
-    // IMPORTANT:
-    // This will show the REAL backend error
-    alert(
-      JSON.stringify(
-        err?.response?.data,
-        null,
-        2
-      )
-    );
+    console.error("[SetupWizard] Registration error occurred");
 
     const backendMessage =
       err?.response?.data?.detail ||

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
+import { apiClient } from '@/api/apiClient';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,14 +23,14 @@ export default function StaffManagement() {
 
   const { data: staff, isLoading } = useQuery({
     queryKey: ['tenant_staff', tenantId],
-    queryFn: () => base44.entities.TenantUser.filter({ institution_id: tenantId }),
+    queryFn: () => entities.TenantUser.filter({ institution_id: tenantId }),
     enabled: !!tenantId,
   });
 
   const inviteStaffMutation = useMutation({
     mutationFn: async (data) => {
       // First, invite the user to the platform with "user" app role
-      const inviteResponse = await base44.functions.invoke('inviteUser', {
+      const inviteResponse = await apiClient.post('/invite-user', {
           email: data.email,
           role: 'user'
       });
@@ -38,7 +39,7 @@ export default function StaffManagement() {
       // The backfillTenantUserEmails or similar job will link the ID later if they don't exist yet
       const userId = inviteResponse?.data?.user?.id || inviteResponse?.user?.id;
 
-      return base44.entities.TenantUser.create({
+      return entities.TenantUser.create({
         institution_id: tenantId,
         email: data.email,
         user_id: userId || null,
@@ -59,7 +60,7 @@ export default function StaffManagement() {
   });
 
   const deleteStaffMutation = useMutation({
-    mutationFn: (id) => base44.entities.TenantUser.delete(id),
+    mutationFn: (id) => entities.TenantUser.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenant_staff', tenantId] });
       toast.success('Staff member removed');
@@ -187,7 +188,7 @@ export default function StaffManagement() {
       </div>
 
       <Card>
-        <div className="p-4 border-b flex items-center gap-4">
+        <div className="p-4 border-b flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
             <Input 
@@ -198,7 +199,7 @@ export default function StaffManagement() {
             />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Roles" />
             </SelectTrigger>
             <SelectContent>
@@ -210,8 +211,9 @@ export default function StaffManagement() {
             </SelectContent>
           </Select>
         </div>
-        <Table>
-          <TableHeader>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
             <TableRow>
               <TableHead className="w-[300px]">EMAIL</TableHead>
               <TableHead>ROLE</TableHead>
@@ -278,6 +280,7 @@ export default function StaffManagement() {
             )}
           </TableBody>
         </Table>
+        </div>
       </Card>
 
       <Card>

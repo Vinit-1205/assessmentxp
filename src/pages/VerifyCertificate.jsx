@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, AlertCircle, Loader2, Award, ExternalLink } from 'lucide-react';
@@ -12,8 +12,8 @@ export default function VerifyCertificate() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['verify', credential_id],
     queryFn: async () => {
-      const res = await base44.functions.invoke('verifyCertificate', { credential_id });
-      return res.data;
+      const res = await apiClient.get(`/verify/${credential_id}`);
+      return res;
     },
     retry: false
   });

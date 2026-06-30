@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
+import { apiClient } from '@/api/apiClient';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export default function ExamDeployment() {
 
   const { data: exams, isLoading: isLoadingExams } = useQuery({
     queryKey: ['exams', tenantId],
-    queryFn: () => base44.entities.Exam.filter({ institution_id: tenantId, status: 'published' }, '-created_date'),
+    queryFn: () => entities.Exam.filter({ institution_id: tenantId, status: 'published' }, '-created_at'),
     enabled: !!tenantId,
   });
 
@@ -55,8 +56,8 @@ export default function ExamDeployment() {
         emails: emails,
         cohort_id: cohortId
       };
-      const res = await base44.functions.invoke('deployExam', payload);
-      return res.data;
+      const res = await apiClient.post('/deploy-exam', payload);
+      return res;
     },
     onSuccess: (data) => {
       toast.success(`Successfully deployed to ${data.count} candidates! Emails and tokens have been dispatched.`);

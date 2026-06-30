@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
+import { apiClient } from '@/api/apiClient';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FileText, CheckCircle, Clock, Plus, Loader2 } from 'lucide-react';
@@ -17,7 +18,6 @@ export default function TenantAdminDashboard() {
   const { user, tenantId } = useTenantContext();
 
   const handleAddFaculty = async (e) => {
-    console.log("button clicked")
     e.preventDefault();
     if (!tenantId) {
       toast.error('Dashboard context not loaded. Please wait...');
@@ -26,7 +26,7 @@ export default function TenantAdminDashboard() {
     setIsAddingFaculty(true);
 
     try {
-      await base44.functions.invoke('inviteUser', {
+      await apiClient.post('/invite-user', {
         email: newFaculty.email,
         role: 'tenant_executive',
         institution_id: tenantId,
@@ -35,32 +35,28 @@ export default function TenantAdminDashboard() {
       toast.success("Faculty added successfully");
       setIsAddFacultyOpen(false);
       setNewFaculty({ name: '', email: '' });
-    }catch (err) {
-  console.error("Invite Faculty Error:", err);
-  console.error("Response:", err?.response);
-  console.error("Response Data:", err?.response?.data);
+    } catch (err) {
+      console.error("Invite Faculty Error");
 
-  toast.error(
-    err?.response?.data?.error ||
-    err?.response?.data?.message ||
-    err?.message ||
-    "Failed to add faculty"
-  );
-} finally {
+      toast.error(
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to add faculty"
+      );
+    } finally {
       setIsAddingFaculty(false);
     }
   };
-
-  console.log("Dashboard Tenant Context:", tenantId);
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return { candidates: 0, exams: 0, results: 0, passed: 0 };
       const [candidates, exams, results] = await Promise.all([
-        base44.entities.Student.filter({ institution_id: tenantId }),
-        base44.entities.Exam.filter({ institution_id: tenantId }),
-        base44.entities.Result.filter({ institution_id: tenantId })
+        entities.Student.filter({ institution_id: tenantId }),
+        entities.Exam.filter({ institution_id: tenantId }),
+        entities.Result.filter({ institution_id: tenantId })
       ]);
       return {
         candidates: candidates.length,

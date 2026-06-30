@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,38 +13,58 @@ export default function CertificateBranding() {
   const queryClient = useQueryClient();
   const { user, tenantId } = useTenantContext();
   
-  const { data: tenant, isLoading } = useQuery({
-    queryKey: ['tenant', tenantId],
-    queryFn: () => base44.entities.Tenant.get(tenantId),
+  // Load or initialize the certificate branding record for this tenant
+  const { data: branding, isLoading } = useQuery({
+    queryKey: ['certificateBranding', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const res = await entities.CertificateBranding.filter({ tenant_id: tenantId });
+      if (res.length > 0) return res[0];
+      
+      // If it doesn't exist, create a blank record for this tenant
+      try {
+        return await entities.CertificateBranding.create({
+          tenant_id: tenantId,
+          logo_base64: '',
+          badge_base64: '',
+          signature_base64: '',
+          background_base64: '',
+          border_color: '#000000'
+        });
+      } catch (err) {
+        console.error("Failed to create default branding record", err);
+        return null;
+      }
+    },
     enabled: !!tenantId
   });
 
   const [formData, setFormData] = useState({
-    logo_url: '',
-    badge_url: '',
-    signature_url: '',
-    background_url: '',
+    logo_base64: '',
+    badge_base64: '',
+    signature_base64: '',
+    background_base64: '',
     border_color: '#000000'
   });
   
   const [uploadingField, setUploadingField] = useState(null);
 
   useEffect(() => {
-    if (tenant) {
+    if (branding) {
       setFormData({
-        logo_url: tenant.logo_url || '',
-        badge_url: tenant.badge_url || '',
-        signature_url: tenant.signature_url || '',
-        background_url: tenant.background_url || '',
-        border_color: tenant.border_color || '#000000'
+        logo_base64: branding.logo_base64 || '',
+        badge_base64: branding.badge_base64 || '',
+        signature_base64: branding.signature_base64 || '',
+        background_base64: branding.background_base64 || '',
+        border_color: branding.border_color || '#000000'
       });
     }
-  }, [tenant]);
+  }, [branding]);
 
   const updateMutation = useMutation({
-    mutationFn: (data) => base44.entities.Tenant.update(tenant.id, data),
+    mutationFn: (data) => entities.CertificateBranding.update(branding.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tenant', user?.tenant_id] });
+      queryClient.invalidateQueries({ queryKey: ['certificateBranding', tenantId] });
       toast.success('Certificate branding updated successfully');
     },
     onError: () => toast.error('Failed to update branding')
@@ -54,18 +74,24 @@ export default function CertificateBranding() {
     updateMutation.mutate(formData);
   };
 
+  // Convert the file to base64 locally and save it in state
   const handleFileUpload = async (e, fieldName) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingField(fieldName);
     try {
-      const res = await base44.integrations.Core.UploadFile({ file });
-      setFormData(prev => ({ ...prev, [fieldName]: res.file_url }));
-      toast.success('Image uploaded');
+      const reader = new FileReader();
+      const base64Data = await new Promise((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setFormData(prev => ({ ...prev, [fieldName]: base64Data }));
+      toast.success('Image loaded locally. Click "Save Branding" to write to the database.');
     } catch (err) {
       console.error(err);
-      toast.error('Upload failed');
+      toast.error('Failed to read image file');
     } finally {
       setUploadingField(null);
       e.target.value = ''; // Reset input
@@ -136,75 +162,75 @@ export default function CertificateBranding() {
       <div className="grid lg:grid-cols-2 gap-8 items-start">
         <div className="space-y-6">
           <Card>
-        <CardHeader>
-          <CardTitle>Visual Assets</CardTitle>
-          <CardDescription>Upload logos, signatures, and customize the certificate appearance.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <ImageUploader 
-              label="Institutional Logo" 
-              description="Placed at the top of the certificate."
-              fieldName="logo_url"
-            />
-            
-            <ImageUploader 
-              label="Official Badge / Seal" 
-              description="Secondary image (e.g., gold seal) placed on the certificate."
-              fieldName="badge_url"
-            />
-            
-            <ImageUploader 
-              label="Authorized Signature" 
-              description="Signature of the Dean/CEO (PNG with transparent background recommended)."
-              fieldName="signature_url"
-            />
-            
-            <ImageUploader 
-              label="Custom Background" 
-              description="Full-page background image (A4 landscape ratio recommended)."
-              fieldName="background_url"
-            />
-          </div>
-
-          <div className="pt-4 border-t">
-            <Label className="text-base font-semibold">Border Color</Label>
-            <p className="text-sm text-muted-foreground mb-3">Color used for the certificate frame.</p>
-            <div className="flex items-center gap-3">
-              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 shadow-sm cursor-pointer border-slate-200">
-                <input
-                  type="color"
-                  value={formData.border_color}
-                  onChange={(e) => setFormData({ ...formData, border_color: e.target.value })}
-                  className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
+            <CardHeader>
+              <CardTitle>Visual Assets</CardTitle>
+              <CardDescription>Upload logos, signatures, and customize the certificate appearance (saved as base64 in database).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <ImageUploader 
+                  label="Institutional Logo" 
+                  description="Placed at the top of the certificate."
+                  fieldName="logo_base64"
+                />
+                
+                <ImageUploader 
+                  label="Official Badge / Seal" 
+                  description="Secondary image (e.g., gold seal) placed on the certificate."
+                  fieldName="badge_base64"
+                />
+                
+                <ImageUploader 
+                  label="Authorized Signature" 
+                  description="Signature of the Dean/CEO (PNG with transparent background recommended)."
+                  fieldName="signature_base64"
+                />
+                
+                <ImageUploader 
+                  label="Custom Background" 
+                  description="Full-page background image (A4 landscape ratio recommended)."
+                  fieldName="background_base64"
                 />
               </div>
-              <Input
-                type="text"
-                value={formData.border_color}
-                onChange={(e) => setFormData({ ...formData, border_color: e.target.value })}
-                className="w-32 uppercase"
-                maxLength={7}
-              />
-            </div>
-          </div>
 
-          <div className="flex justify-end pt-6">
-            <Button 
-              size="lg" 
-              onClick={handleSave} 
-              disabled={updateMutation.isPending}
-              className="gap-2"
-            >
-              {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-              Save Branding
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="pt-4 border-t">
+                <Label className="text-base font-semibold">Border Color</Label>
+                <p className="text-sm text-muted-foreground mb-3">Color used for the certificate frame.</p>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 shadow-sm cursor-pointer border-slate-200">
+                    <input
+                      type="color"
+                      value={formData.border_color}
+                      onChange={(e) => setFormData({ ...formData, border_color: e.target.value })}
+                      className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer"
+                    />
+                  </div>
+                  <Input
+                    type="text"
+                    value={formData.border_color}
+                    onChange={(e) => setFormData({ ...formData, border_color: e.target.value })}
+                    className="w-32 uppercase"
+                    maxLength={7}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-6">
+                <Button 
+                  size="lg" 
+                  onClick={handleSave} 
+                  disabled={updateMutation.isPending}
+                  className="gap-2"
+                >
+                  {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                  Save Branding
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="sticky top-6">
+        <div className="lg:sticky lg:top-6">
           <Card>
             <CardHeader>
               <CardTitle>Live Preview</CardTitle>
@@ -213,15 +239,15 @@ export default function CertificateBranding() {
             <CardContent>
               <div className="w-full bg-slate-100 border border-slate-200 rounded-lg overflow-hidden shadow-inner flex items-center justify-center p-2">
                 <svg viewBox="0 0 297 210" className="w-full h-auto bg-white shadow-sm" style={{ display: 'block' }}>
-                  {formData.background_url && (
-                    <image href={formData.background_url} x="0" y="0" width="297" height="210" preserveAspectRatio="none" />
+                  {formData.background_base64 && (
+                    <image href={formData.background_base64} x="0" y="0" width="297" height="210" preserveAspectRatio="none" />
                   )}
                   
                   <rect x="10" y="10" width="277" height="190" stroke={formData.border_color} strokeWidth="5" fill="none" />
                   <rect x="15" y="15" width="267" height="180" stroke={formData.border_color} strokeWidth="1" fill="none" />
                   
-                  {formData.logo_url && (
-                    <image href={formData.logo_url} x="118.5" y="20" width="60" height="20" preserveAspectRatio="xMidYMid meet" />
+                  {formData.logo_base64 && (
+                    <image href={formData.logo_base64} x="118.5" y="20" width="60" height="20" preserveAspectRatio="xMidYMid meet" />
                   )}
                   
                   <text x="148.5" y="50" textAnchor="middle" fontSize="14.11" fontWeight="bold" fontFamily="helvetica, Arial, sans-serif" fill="#000000">Certificate of Completion</text>
@@ -231,15 +257,15 @@ export default function CertificateBranding() {
                   <text x="148.5" y="130" textAnchor="middle" fontSize="8.46" fontWeight="bold" fontFamily="helvetica, Arial, sans-serif" fill="#000000">Sample Certification Exam</text>
                   <text x="148.5" y="145" textAnchor="middle" fontSize="5.64" fontFamily="helvetica, Arial, sans-serif" fill="#000000">with an Academic Score of 92%</text>
                   
-                  {formData.badge_url && (
-                    <image href={formData.badge_url} x="30" y="150" width="40" height="40" preserveAspectRatio="xMidYMid meet" />
+                  {formData.badge_base64 && (
+                    <image href={formData.badge_base64} x="30" y="150" width="40" height="40" preserveAspectRatio="xMidYMid meet" />
                   )}
                   
-                  {formData.signature_url && (
-                    <image href={formData.signature_url} x="200" y="150" width="60" height="25" preserveAspectRatio="xMidYMid meet" />
+                  {formData.signature_base64 && (
+                    <image href={formData.signature_base64} x="200" y="150" width="60" height="25" preserveAspectRatio="xMidYMid meet" />
                   )}
                   
-                  <text x="148.5" y="170" textAnchor="middle" fontSize="4.93" fontFamily="helvetica, Arial, sans-serif" fill="#000000">Awarded by: {tenant?.name || 'Organization'}</text>
+                  <text x="148.5" y="170" textAnchor="middle" fontSize="4.93" fontFamily="helvetica, Arial, sans-serif" fill="#000000">Awarded by: {branding?.tenant_name || user?.tenant_name || 'Organization'}</text>
                   <text x="148.5" y="180" textAnchor="middle" fontSize="4.93" fontFamily="helvetica, Arial, sans-serif" fill="#000000">Date: May 16, 2026</text>
                 </svg>
               </div>

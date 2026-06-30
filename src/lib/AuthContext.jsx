@@ -1,7 +1,6 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { appParams } from '@/lib/app-params';
-import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import { supabase } from '@/api/supabaseClient';
+import { entities } from '@/api/entities';
 
 const AuthContext = createContext();
 
@@ -9,184 +8,198 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [appPublicSettings, setAppPublicSettings] = useState({ id: 'assessmentxp' });
+
+  // Ref that stays true once a user is fully resolved — avoids stale-closure bug
+  // where the SIGNED_IN guard (event === 'SIGNED_IN' && user) always sees user=null.
+  const userLoadedRef = useRef(false);
 
   useEffect(() => {
-    checkAppState();
-  }, []);
+    // 1. Check the current session immediately on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        resolveUserFromSession(session);
+      } else {
+        setIsLoadingAuth(false);
+        setAuthChecked(true);
+      }
+    });
 
-  const checkAppState = async () => {
-    try {
-      setIsLoadingPublicSettings(true);
-      setAuthError(null);
-      
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
-      const appClient = createAxiosClient({
-        baseURL: `/api/apps/public`,
-        headers: {
-          'X-App-Id': appParams.appId
-        },
-        token: appParams.token, // Include token if available
-        interceptResponses: true
-      });
-      
-      try {
-        const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
-        setAppPublicSettings(publicSettings);
-        
-        // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
-          await checkUserAuth();
+    // 2. Subscribe to auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        // Supabase fires TOKEN_REFRESHED and SIGNED_IN both when you switch back
+        // to the tab (_onVisibilityChanged → _recoverAndRefresh).
+        // Guard using a ref (not state) to avoid stale-closure always seeing user=null.
+        if (event === 'TOKEN_REFRESHED') return;
+        if (event === 'SIGNED_IN' && userLoadedRef.current) return;
+
+        if (session) {
+          await resolveUserFromSession(session);
         } else {
           setUser(null);
           setIsAuthenticated(false);
           setAuthChecked(true);
           setIsLoadingAuth(false);
         }
-        setIsLoadingPublicSettings(false);
-      } catch (appError) {
-        console.error('App state check failed:', appError);
-        
-        // Handle app-level errors
-        if (appError.status === 403 && appError.data?.extra_data?.reason) {
-          const reason = appError.data.extra_data.reason;
-          if (reason === 'auth_required') {
-            setAuthError({
-              type: 'auth_required',
-              message: 'Authentication required'
-            });
-          } else if (reason === 'user_not_registered') {
-            setAuthError({
-              type: 'user_not_registered',
-              message: 'User not registered for this app'
-            });
-          } else {
-            setAuthError({
-              type: reason,
-              message: appError.message
-            });
-          }
-        } else {
-          setAuthError({
-            type: 'unknown',
-            message: appError.message || 'Failed to load app'
-          });
-        }
-        setIsLoadingPublicSettings(false);
-        setIsLoadingAuth(false);
       }
+    );
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  /**
+   * Given a live Supabase session, load the user's TenantUser record
+   * to determine their active role and institution_id.
+   *
+   * Sets the same `user` shape that the rest of the app expects:
+   * {
+   *   id, email, full_name, role,
+   *   activeRoles: [{ role, institution_id }],
+   *   institution_id: string | null,
+   *   activeRole: string,
+   * }
+   */
+  const resolveUserFromSession = async (session) => {
+    // Only show the loading spinner when we have no user yet (first load / after logout).
+    // If a user is already set, update silently so pages (especially CandidateExam)
+    // are NOT unmounted and restarted by the loading state.
+    if (!user) {
+      setIsLoadingAuth(true);
+    }
+    setAuthError(null);
+    try {
+      const authUser = session.user;
+
+      // Pull profile from public.users table
+      let profile = null;
+      try {
+        profile = await entities.User.get(authUser.id);
+      } catch (e) {
+        // Profile might not exist yet (race after signup trigger)
+        console.warn('[AuthContext] Could not load profile row:', e.message);
+      }
+
+      const baseUser = {
+        id: authUser.id,
+        email: authUser.email,
+        full_name: profile?.full_name || authUser.user_metadata?.full_name || '',
+        role: profile?.role || authUser.app_metadata?.role || 'user',
+      };
+
+      // Check app_metadata for claims set by the backend at login
+      const appMeta = authUser.app_metadata || {};
+      const metaRole = appMeta.active_role;
+      const metaInstitutionId = appMeta.institution_id;
+
+      let activeRoles = [];
+      let activeInstitutionId = metaInstitutionId || null;
+      let activeRole = metaRole || null;
+
+      // Super admins / platform admins — skip TenantUser lookup
+      if (baseUser.role === 'admin' || baseUser.role === 'super_admin') {
+        activeRoles = [{ role: baseUser.role }];
+        activeRole = baseUser.role;
+        if (!activeInstitutionId) {
+          try {
+            const institutions = await entities.Institution.filter({}, '-created_date', 1);
+            if (institutions.length > 0) activeInstitutionId = institutions[0].id;
+          } catch (_) { /* no institutions yet */ }
+        }
+      } else {
+        // Load TenantUser records to determine role + institution
+        try {
+          const tenantUsers = await entities.TenantUser.filter({ user_id: authUser.id, is_active: true });
+          activeRoles = tenantUsers;
+
+          if (tenantUsers.length > 0) {
+            // Prefer tenant_admin > tenant_executive > first record
+            const preferredRecord =
+              tenantUsers.find(t => t.role === 'tenant_admin' || t.role === 'tenant_executive') ||
+              tenantUsers[0];
+
+            activeInstitutionId = preferredRecord.institution_id;
+            activeRole = preferredRecord.role;
+
+            // Check institution approval status
+            if (activeInstitutionId) {
+              try {
+                const institution = await entities.Institution.get(activeInstitutionId);
+                if (institution?.status === 'Pending') {
+                  activeRole = 'pending_approval';
+                }
+              } catch (e) {
+                console.warn('[AuthContext] Failed to check institution status:', e.message);
+              }
+            }
+          }
+          // else: user has no TenantUser records yet → goes to /setup
+        } catch (e) {
+          console.warn('[AuthContext] Failed to load TenantUser records:', e.message);
+        }
+      }
+
+      setUser({
+        ...baseUser,
+        activeRoles,
+        institution_id: activeInstitutionId,
+        activeRole: activeRole || baseUser.role,
+        // Keep tenant_id alias used in some pages
+        tenant_id: activeInstitutionId,
+      });
+      userLoadedRef.current = true; // Mark as loaded so tab-switch SIGNED_IN is skipped
+      setIsAuthenticated(true);
     } catch (error) {
-      console.error('Unexpected error:', error);
+      console.error('[AuthContext] resolveUserFromSession failed:', error);
       setAuthError({
         type: 'unknown',
-        message: error.message || 'An unexpected error occurred'
+        message: error.message || 'Failed to load user session',
       });
-      setIsLoadingPublicSettings(false);
+    } finally {
       setIsLoadingAuth(false);
+      setAuthChecked(true);
     }
   };
 
+  /** Re-run the session resolution (called after SetupWizard completes) */
   const checkUserAuth = async () => {
-    try {
-      // Now check if the user is authenticated
-      setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
-      let activeRoles = [];
-      let activeInstitutionId = null;
-      let activeRole = null;
-      
-      if (currentUser) {
-        const tenantUsers = await base44.entities.TenantUser.filter({ user_id: currentUser.id, is_active: true });
-        activeRoles = tenantUsers;
-
-        if (tenantUsers.length > 0) {
-          const tenantRecord =
-            tenantUsers.find(t => t.role === 'tenant_admin' || t.role === 'tenant_executive') ||
-            tenantUsers[0];
-          activeInstitutionId = tenantRecord.institution_id;
-          activeRole = tenantRecord.role;
-          
-          // Check institution status if they have a tenant record
-          if (activeInstitutionId) {
-            try {
-              const institution = await base44.entities.Institution.get(activeInstitutionId);
-              if (institution && institution.status === 'Pending') {
-                 activeRole = 'pending_approval';
-              }
-            } catch (e) {
-               console.warn("Failed to check institution status", e);
-            }
-          }
-        } else {
-          // Fallbacks when no TenantUser record exists:
-          // 1. Platform admins / super_admins always get access.
-          if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
-            activeRoles = [{ role: currentUser.role }];
-            activeRole = currentUser.role;
-            const institutions = await base44.entities.Institution.filter({}, '-created_date', 1);
-            if (institutions.length > 0) {
-              activeInstitutionId = institutions[0].id;
-            }
-          }
-          // 2. Users with embedded tenant_access (legacy / invited users).
-          else if (Array.isArray(currentUser.tenant_access) && currentUser.tenant_access.length > 0) {
-            activeRoles = currentUser.tenant_access;
-            activeInstitutionId = currentUser.tenant_access[0].institution_id;
-            activeRole = currentUser.tenant_access[0].role;
-          }
-        }
-      }
-      setUser({ 
-        ...currentUser, 
-        activeRoles, 
-        institution_id: activeInstitutionId, 
-        activeRole: activeRole || currentUser?.role 
-      });
-      setIsAuthenticated(true);
-      setIsLoadingAuth(false);
-      setAuthChecked(true);
-    } catch (error) {
-      console.error('User auth check failed:', error);
-      setIsLoadingAuth(false);
-      setIsAuthenticated(false);
-      setAuthChecked(true);
-      
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await resolveUserFromSession(session);
     }
   };
 
-  const logout = (shouldRedirect = true) => {
+  /** Sign out and clear state */
+  const logout = async (shouldRedirect = true) => {
+    userLoadedRef.current = false; // Allow re-resolution on next login
+    await supabase.auth.signOut();
     setUser(null);
     setIsAuthenticated(false);
-    
     if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      base44.auth.logout();
+      window.location.href = '/';
     }
   };
 
+  /** Redirect to login page (kept for backward compatibility with components that call this) */
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    base44.auth.redirectToLogin(window.location.href);
+    window.location.href = '/';
+  };
+
+  /** Stub: kept to satisfy components that check appPublicSettings */
+  const checkAppState = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await resolveUserFromSession(session);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,
@@ -195,7 +208,7 @@ export const AuthProvider = ({ children }) => {
       logout,
       navigateToLogin,
       checkUserAuth,
-      checkAppState
+      checkAppState,
     }}>
       {children}
     </AuthContext.Provider>

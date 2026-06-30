@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { entities } from "@/api/entities";
+import { apiClient } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,6 @@ export default function Login() {
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
  const handleSubmit = async (e) => {
   e.preventDefault();
@@ -23,75 +23,65 @@ export default function Login() {
 
   try {
     if (loginMode === "credentials") {
-      // --- STEP 1: Normalize inputs ---
       const normalizedEmail = email.trim().toLowerCase();
-      console.log("[LOGIN] Step 1 — raw email:", JSON.stringify(email), "| normalized:", JSON.stringify(normalizedEmail));
-      console.log("[LOGIN] Step 1 — password length:", password.length, "| has leading/trailing space:", password !== password.trim());
+      console.log("[LOGIN] Attempting credentials sign-in...");
 
-      // --- STEP 2: Authenticate against Base44 Auth ---
-      console.log("[LOGIN] Step 2 — calling loginViaEmailPassword...");
-      try {
-        await base44.auth.loginViaEmailPassword(normalizedEmail, password);
-        console.log("[LOGIN] Step 2 — ✅ loginViaEmailPassword SUCCEEDED");
-      } catch (authErr) {
-        console.error("[LOGIN] Step 2 — ❌ loginViaEmailPassword FAILED:", authErr);
-        console.error("[LOGIN] Step 2 — error.message:", authErr?.message);
-        console.error("[LOGIN] Step 2 — error.status:", authErr?.status, "| response:", authErr?.response?.data);
-        throw authErr;
+      // Authenticate with Supabase
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (signInError) {
+        console.error("[LOGIN] Sign-in failed:", signInError.message);
+        throw signInError;
       }
 
-      // --- STEP 3: Fetch the authenticated user ---
-      console.log("[LOGIN] Step 3 — calling base44.auth.me()...");
-      const loggedInUser = await base44.auth.me();
-      console.log("[LOGIN] Step 3 — ✅ user:", loggedInUser);
-      console.log("[LOGIN] Step 3 — user.id:", loggedInUser?.id, "| role:", loggedInUser?.role);
-      console.log("[LOGIN] Step 3 — tenant_access type:", Array.isArray(loggedInUser?.tenant_access) ? "array" : typeof loggedInUser?.tenant_access, "| value:", loggedInUser?.tenant_access);
+      const loggedInUser = signInData.user;
+      console.log("[LOGIN] Sign-in successful");
 
-      // --- STEP 4: Resolve tenant_access (handle BOTH array and object shapes) ---
-      const rawAccess = loggedInUser?.tenant_access;
-      const tenantAccessList = Array.isArray(rawAccess)
-        ? rawAccess
-        : rawAccess && typeof rawAccess === "object"
-          ? [rawAccess]
-          : [];
-      console.log("[LOGIN] Step 4 — normalized tenantAccessList:", tenantAccessList);
-
-      if (loggedInUser?.role === "user" && tenantAccessList.length > 0) {
-        const targetInstitutionId = tenantAccessList[0].institution_id;
-        console.log("[LOGIN] Step 5 — targetInstitutionId:", targetInstitutionId);
-
-        // --- STEP 5: Verify the TenantUser mapping ---
-        console.log("[LOGIN] Step 5 — querying TenantUser...");
-        const verifiedTenantUsers = await base44.entities.TenantUser.filter({
+      // Check TenantUser mapping for redirect decision
+      try {
+        const tenantUsers = await entities.TenantUser.filter({
           user_id: loggedInUser.id,
-          institution_id: targetInstitutionId,
           is_active: true,
         });
-        console.log("[LOGIN] Step 5 — matched TenantUser records:", verifiedTenantUsers);
 
-        if (verifiedTenantUsers.length > 0) {
-          console.log("[LOGIN] Step 6 — ✅ verified tenant admin → /tenant-dashboard");
+        const isAdmin = loggedInUser.app_metadata?.role === 'admin' ||
+                        loggedInUser.app_metadata?.role === 'super_admin';
+
+        if (isAdmin) {
+          window.location.href = "/super-admin";
+          return;
+        }
+
+        if (tenantUsers.length > 0) {
           window.location.href = "/tenant-dashboard";
           return;
         }
-        console.warn("[LOGIN] Step 6 — ⚠️ no active TenantUser match → falling through to /dashboard");
-      } else {
-        console.log("[LOGIN] Step 5 — skipped tenant check (role is not 'user' or no tenant_access)");
+      } catch (tuErr) {
+        console.warn("[LOGIN] TenantUser lookup failed:", tuErr.message);
       }
 
-      console.log("[LOGIN] Step 7 — redirecting to /dashboard");
       window.location.href = "/dashboard";
       return;
     } else {
-      console.log("[LOGIN] Token mode — invoking loginWithToken...");
-      await base44.functions.invoke("loginWithToken", { token });
+      // Exam token login — backend exchanges token for a Supabase session
+      console.log("[LOGIN] Token mode — calling /login-with-token...");
+      const res = await apiClient.post("/login-with-token", { token });
+      if (res?.access_token) {
+        await supabase.auth.setSession({
+          access_token: res.access_token,
+          refresh_token: res.refresh_token,
+        });
+      }
       window.location.href = "/dashboard";
       return;
     }
   } catch (err) {
     console.error("[LOGIN] FATAL — login flow failed:", err);
     const status = err?.status || err?.response?.status;
-    if (status === 401 || status === 403) {
+    if (status === 401 || status === 403 || err?.message?.toLowerCase().includes('invalid')) {
       setError("Invalid email or password. Please check your credentials and try again.");
     } else {
       setError(err?.message || "Something went wrong during login. Please try again.");

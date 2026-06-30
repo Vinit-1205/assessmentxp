@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -19,16 +19,16 @@ export default function SAManageTenants() {
 
   const { data: institutions, isLoading: isLoadingInst } = useQuery({
     queryKey: ['sa_institutions'],
-    queryFn: () => base44.entities.Institution.list(),
+    queryFn: () => entities.Institution.list(),
   });
 
   const { data: tenantUsers, isLoading: isLoadingUsers } = useQuery({
     queryKey: ['sa_tenant_users'],
-    queryFn: () => base44.entities.TenantUser.list(),
+    queryFn: () => entities.TenantUser.list(),
   });
 
   const updateInstitutionMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Institution.update(id, data),
+    mutationFn: ({ id, data }) => entities.Institution.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sa_institutions'] });
       toast.success('Institution updated');

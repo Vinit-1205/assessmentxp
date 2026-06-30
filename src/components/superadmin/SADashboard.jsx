@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,12 @@ import { Button } from '@/components/ui/button';
 export default function SADashboard({ onManageClick }) {
   const { data: institutions, isLoading: isLoadingInst } = useQuery({
     queryKey: ['sa_institutions'],
-    queryFn: () => base44.entities.Institution.list(),
+    queryFn: () => entities.Institution.list(),
   });
 
   const { data: tenantUsers, isLoading: isLoadingUsers } = useQuery({
     queryKey: ['sa_tenant_users'],
-    queryFn: () => base44.entities.TenantUser.list(),
+    queryFn: () => entities.TenantUser.list(),
   });
 
   if (isLoadingInst || isLoadingUsers) {

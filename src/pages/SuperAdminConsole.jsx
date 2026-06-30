@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, LayoutDashboard, Building2, Users, BookOpen, Settings, ShieldCheck } from 'lucide-react';
+import { LogOut, LayoutDashboard, Building2, Users, BookOpen, Settings, ShieldCheck, Menu, X } from 'lucide-react';
 import SADashboard from '@/components/superadmin/SADashboard';
 import SAManageTenants from '@/components/superadmin/SAManageTenants';
 import SAApprovals from '@/components/superadmin/SAApprovals';
@@ -9,6 +9,7 @@ import SAApprovals from '@/components/superadmin/SAApprovals';
 export default function SuperAdminConsole() {
   const { logout, user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'SA Dashboard', icon: LayoutDashboard },
@@ -19,14 +20,24 @@ export default function SuperAdminConsole() {
   ];
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      {/* Super Admin Sidebar */}
-      <div className="w-64 bg-white border-r flex flex-col z-20 shadow-sm relative">
-        <div className="h-16 flex items-center px-6 border-b">
+    <div className="flex h-screen bg-slate-50 overflow-hidden relative flex-col lg:flex-row">
+      {/* Super Admin Sidebar Wrapper */}
+      <div 
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r flex flex-col shadow-sm transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="h-16 flex items-center justify-between px-6 border-b shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white font-bold text-lg">U</div>
             <span className="text-xl font-bold text-slate-800">UniSIS</span>
           </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden p-1.5 hover:bg-slate-100 rounded text-slate-500 focus:outline-none"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-6">
@@ -36,7 +47,10 @@ export default function SuperAdminConsole() {
               {menuItems.map(item => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setIsSidebarOpen(false);
+                  }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     activeTab === item.id 
                       ? 'bg-blue-50 text-blue-700' 
@@ -51,7 +65,7 @@ export default function SuperAdminConsole() {
           </div>
         </div>
 
-        <div className="p-4 border-t bg-slate-50">
+        <div className="p-4 border-t bg-slate-50 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-bold uppercase">
@@ -69,18 +83,34 @@ export default function SuperAdminConsole() {
         </div>
       </div>
 
+      {/* Overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden" 
+        />
+      )}
+
       {/* Main Content */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 bg-white border-b flex items-center px-6 sticky top-0 z-10">
-          <div className="flex items-center text-sm text-slate-500">
-            Super Admin <span className="mx-2">›</span> 
-            <span className="text-slate-800 font-medium">
-              {menuItems.find(m => m.id === activeTab)?.label}
-            </span>
+      <div className="flex-1 flex flex-col relative overflow-hidden h-full">
+        <header className="h-16 bg-white border-b flex items-center px-6 sticky top-0 z-10 justify-between lg:justify-start">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-1.5 hover:bg-slate-100 rounded text-slate-600 focus:outline-none"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center text-sm text-slate-500">
+              Super Admin <span className="mx-2">›</span> 
+              <span className="text-slate-800 font-medium">
+                {menuItems.find(m => m.id === activeTab)?.label}
+              </span>
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 relative">
+        <main className="flex-1 overflow-auto p-4 md:p-6 relative w-full">
           {activeTab === 'dashboard' && <SADashboard onManageClick={() => setActiveTab('tenants')} />}
           {activeTab === 'approvals' && <SAApprovals />}
           {activeTab === 'tenants' && <SAManageTenants />}

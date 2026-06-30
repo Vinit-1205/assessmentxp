@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
+import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, CheckCircle, Clock, BookOpen, Award, FileText, ChevronRight, MonitorCheck, Loader2 } from 'lucide-react';
@@ -10,7 +11,7 @@ import { toast } from "sonner";
 
 export default function CandidateDashboard() {
   const navigate = useNavigate();
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
+  const { user } = useAuth();
 
   const [systemChecks, setSystemChecks] = useState({});
   const [checking, setChecking] = useState({});
@@ -50,10 +51,12 @@ export default function CandidateDashboard() {
     queryKey: ['candidate-results', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const res = await base44.entities.Result.filter({ candidate_id: user.id }, '-created_date');
+      const res = await entities.Result.filter({ candidate_id: user.id }, '-created_at');
+      // Filter out unreleased results
+      const releasedRes = res.filter(r => r.is_released === true);
       // Fetch exam details for each result
-      const exams = await Promise.all(res.map(r => base44.entities.Exam.get(r.exam_id).catch(() => null)));
-      return res.map((r, i) => ({ ...r, exam: exams[i] })).filter(r => r.exam);
+      const exams = await Promise.all(releasedRes.map(r => entities.Exam.get(r.exam_id).catch(() => null)));
+      return releasedRes.map((r, i) => ({ ...r, exam: exams[i] })).filter(r => r.exam);
     },
     enabled: !!user?.id,
   });
@@ -62,16 +65,17 @@ export default function CandidateDashboard() {
     queryKey: ['active-exams', user?.tenant_id, user?.id],
     queryFn: async () => {
       if (!user?.tenant_id || !user?.id) return [];
-      const allExams = await base44.entities.Exam.filter({ tenant_id: user.tenant_id, status: 'published' });
+      const allExams = await entities.Exam.filter({ institution_id: user.institution_id, status: 'published' });
       // Remove exams already completed
-      const attempts = await base44.entities.ExamAttempt.filter({ candidate_id: user.id, completed: true });
+      const attempts = await entities.ExamAttempt.filter({ candidate_id: user.id, completed: true });
       const completedExamIds = new Set(attempts.map(a => a.exam_id));
       return allExams.filter(e => !completedExamIds.has(e.id));
     },
-    enabled: !!user?.tenant_id && !!user?.id,
+    enabled: !!user?.institution_id && !!user?.id,
   });
 
-  const credentials = results?.filter(r => r.certificate_url) || [];
+  // Only show credentials from released results that have a certificate URL
+  const credentials = results?.filter(r => r.is_released && r.certificate_url) || [];
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">

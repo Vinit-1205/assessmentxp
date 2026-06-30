@@ -1,10 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Mail } from 'lucide-react';
 
 export default function StudentProfile() {
-  const { data: user, isLoading } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
+  const { user, isLoadingAuth: isLoading } = useAuth();
 
   if (isLoading) return <div className="text-slate-400">Loading profile...</div>;
 

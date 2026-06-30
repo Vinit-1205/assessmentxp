@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
 import { useTenantContext } from '@/hooks/useTenantContext';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -12,7 +12,7 @@ export default function Analytics() {
     queryKey: ['analytics', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const results = await base44.entities.Result.filter({ tenant_id: tenantId }, 'created_date');
+      const results = await entities.Result.filter({ tenant_id: tenantId }, 'created_at');
       
       // Group by month
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -1,20 +1,21 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LogOut, Award, User, HelpCircle, BookOpen } from 'lucide-react';
-import { base44 } from "@/api/base44Client";
+import { useAuth } from '@/lib/AuthContext';
+import { entities } from '@/api/entities';
 import { useQuery } from '@tanstack/react-query';
 
 export default function CandidateLayout() {
   const location = useLocation();
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
+  const { user, logout } = useAuth();
   
   const { data: tenant } = useQuery({
     queryKey: ['tenant', user?.tenant_id],
-    queryFn: () => base44.entities.Tenant.get(user.tenant_id),
+    queryFn: () => entities.Tenant.get(user.tenant_id),
     enabled: !!user?.tenant_id
   });
 
   const handleLogout = async () => {
-    await base44.auth.logout();
+    await logout();
   };
 
   return (

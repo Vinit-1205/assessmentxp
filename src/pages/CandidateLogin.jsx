@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { supabase } from "@/api/supabaseClient";
+import { entities } from "@/api/entities";
+import { apiClient } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,12 +36,12 @@ export default function CandidateLogin() {
           // Unauthenticated users might not have access to Tenant directly due to RLS,
           // so we use a public backend function or assume RLS allows read for branding.
           // Fallback to default if it fails.
-          const res = await base44.functions.invoke("getTenantBranding", { tenant_id: tenantIdFromUrl });
-          if (res.data && res.data.tenant) {
+          const res = await apiClient.get(`/tenant-branding/${tenantIdFromUrl}`);
+          if (res?.tenant) {
             setTenantBranding({
-              logo_url: res.data.tenant.logo_url,
-              brand_color: res.data.tenant.border_color || "#002147",
-              name: res.data.tenant.name || "AssessmentXP"
+              logo_url: res.tenant.logo_url,
+              brand_color: res.tenant.border_color || "#002147",
+              name: res.tenant.name || "AssessmentXP"
             });
           }
         } catch (err) {
@@ -59,13 +61,14 @@ export default function CandidateLogin() {
 
     try {
       if (loginMode === "credentials") {
-        await base44.auth.loginViaEmailPassword(email, password);
-        const user = await base44.auth.me();
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+        const user = signInData?.user;
         
         // If tenant_id isn't in URL, try to pull it from the user now that they are logged in
-        if (!tenantIdFromUrl && user?.tenant_id) {
+        if (!tenantIdFromUrl && user?.app_metadata?.institution_id) {
           try {
-             const tenant = await base44.entities.Tenant.get(user.tenant_id);
+             const tenant = await entities.Tenant.get(user.app_metadata.institution_id);
              if (tenant) {
                setTenantBranding({
                  logo_url: tenant.logo_url,
@@ -76,17 +79,20 @@ export default function CandidateLogin() {
           } catch(e) {}
         }
         
-        window.location.href = "/"; // Route to personal Student Portal Dashboard (Phase 10A)
+        window.location.href = "/"; // Route to personal Student Portal Dashboard
       } else {
         // Attempt to authenticate via token
         try {
-          const res = await base44.functions.invoke("loginWithExamToken", { token });
-          if (res.data && res.data.success && res.data.exam_id) {
-            // If the backend function returned a session token to set:
-            if (res.data.access_token) {
-               base44.auth.setToken(res.data.access_token);
+          const res = await apiClient.post("/login-with-exam-token", { token });
+          if (res?.success && res?.exam_id) {
+            // If the backend returned a session token to set:
+            if (res.access_token) {
+               await supabase.auth.setSession({
+                 access_token: res.access_token,
+                 refresh_token: res.refresh_token,
+               });
             }
-            window.location.href = `/exam/${res.data.exam_id}`; // Route directly to Webcam System Check / Ready Room
+            window.location.href = `/exam/${res.exam_id}`;
           } else {
             throw new Error("Invalid token");
           }

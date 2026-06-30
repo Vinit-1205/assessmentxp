@@ -20,6 +20,19 @@ export default function SchedulingTab({ exam, onUpdate }) {
 
         <Card className="bg-white border-slate-200 shadow-sm mb-6">
           <CardContent className="p-8">
+            <h3 className="text-sm font-semibold text-slate-800 mb-1">Exam Title</h3>
+            <p className="text-[10px] text-slate-500 mb-4">The name of this exam as seen by students and in reports</p>
+            <Input
+              value={exam.title || ''}
+              onChange={e => onUpdate({ title: e.target.value })}
+              className="bg-slate-50 border-slate-200 text-base font-medium"
+              placeholder="e.g. Mid-Term Database Examination 2026"
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-slate-200 shadow-sm mb-6">
+          <CardContent className="p-8">
             <h3 className="text-sm font-semibold text-slate-800 mb-6">Exam Window</h3>
             
             <div className="grid grid-cols-2 gap-8">

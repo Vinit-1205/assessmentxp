@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { entities } from '@/api/entities';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,22 +13,22 @@ export default function SAApprovals() {
   const { data: pendingInstitutions, isLoading } = useQuery({
     queryKey: ['pending_institutions'],
     queryFn: async () => {
-      return await base44.entities.Institution.filter({ status: 'Pending' });
+      return await entities.Institution.filter({ status: 'Pending' });
     }
   });
 
   const { data: tenantAdmins } = useQuery({
     queryKey: ['tenant_users_all'],
     queryFn: async () => {
-      return await base44.entities.TenantUser.filter({ role: 'tenant_admin' });
+      return await entities.TenantUser.filter({ role: 'tenant_admin' });
     }
   });
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, tenantUserId }) => {
-      await base44.entities.Institution.update(id, { status: 'Active' });
+      await entities.Institution.update(id, { status: 'Active' });
       if (tenantUserId) {
-         await base44.entities.TenantUser.update(tenantUserId, { is_active: true });
+         await entities.TenantUser.update(tenantUserId, { is_active: true });
       }
     },
     onSuccess: () => {
@@ -43,9 +43,9 @@ export default function SAApprovals() {
   const rejectMutation = useMutation({
     mutationFn: async ({ id, tenantUserId }) => {
       if (tenantUserId) {
-        await base44.entities.TenantUser.delete(tenantUserId);
+        await entities.TenantUser.delete(tenantUserId);
       }
-      await base44.entities.Institution.delete(id);
+      await entities.Institution.delete(id);
     },
     onSuccess: () => {
       toast.success("Institution request rejected");
