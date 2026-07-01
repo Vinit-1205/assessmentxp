@@ -60,7 +60,7 @@ router.post('/invite-user', authMiddleware, async (req, res) => {
     let authUser = null;
     try {
       const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: process.env.REDIRECT_URL || `${req.protocol}://${req.get('host')}/reset-password`,
+        redirectTo: process.env.REDIRECT_URL || (process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/reset-password` : `${req.protocol}://${req.get('host')}/reset-password`),
         data: {
           full_name: full_name || email.split('@')[0],
           role: 'user'

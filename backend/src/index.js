@@ -25,7 +25,17 @@ const PORT = process.env.PORT || 4000;
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Enable CORS for frontend requests
-const allowedOrigins = process.env.CLIENT_URL || process.env.FRONTEND_URL || '*';
+let allowedOrigins = process.env.FRONTEND_URL || process.env.CLIENT_URL;
+
+if (process.env.NODE_ENV === 'production') {
+  if (!allowedOrigins) {
+    throw new Error('FRONTEND_URL environment variable is required in production');
+  }
+} else {
+  // Fallback for local development
+  allowedOrigins = allowedOrigins || 'http://localhost:5173';
+}
+
 app.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -49,17 +59,6 @@ app.use('/api', dbQueryRoutes);
 // Base / Health-check Route
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Serve static assets from the frontend build
-app.use(express.static(path.join(__dirname, '../../dist')));
-
-// Serve SPA frontend index.html for any other non-API/non-health requests
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
-    return next();
-  }
-  res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Centralised Error Handling Middleware
