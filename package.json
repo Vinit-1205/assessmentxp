@@ -6,7 +6,7 @@
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "npm run dev --prefix backend",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev": "node run.cjs",
     "build": "vite build",
     "start": "node backend/src/index.js",
     "lint": "eslint . --quiet",
