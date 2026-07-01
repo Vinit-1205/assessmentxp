@@ -682,7 +682,7 @@ const auth = {
           return { data: null, error: { message: 'User not found' } };
         }
 
-        const redirectTo = options?.redirectTo || (process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/reset-password` : `${API_URL}/reset-password`);
+        const redirectTo = options?.redirectTo || `${API_URL}/reset-password`;
         const link = `${redirectTo}?token=${resetToken}`;
 
         // Automatically trigger invite email if type is recovery/invite

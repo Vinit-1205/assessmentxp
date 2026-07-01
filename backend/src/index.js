@@ -24,23 +24,14 @@ const PORT = process.env.PORT || 4000;
 // Enable static file serving for local uploads (certificates/snapshots)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-// Enable CORS for frontend requests
-let allowedOrigins = process.env.FRONTEND_URL || process.env.CLIENT_URL;
-
-if (process.env.NODE_ENV === 'production') {
-  if (!allowedOrigins) {
-    throw new Error('FRONTEND_URL environment variable is required in production');
-  }
-} else {
-  // Fallback for local development
-  allowedOrigins = allowedOrigins || 'http://localhost:5173';
+// Enable CORS for frontend requests (only in non-production environments)
+if (process.env.NODE_ENV !== 'production') {
+  app.use(cors({
+    origin: process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
 }
-
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 
 // Parse raw JSON payloads — 10mb limit to accommodate base64 webcam snapshots
 app.use(express.json({ limit: '10mb' }));
@@ -59,6 +50,17 @@ app.use('/api', dbQueryRoutes);
 // Base / Health-check Route
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve static assets from the frontend build
+app.use(express.static(path.join(__dirname, '../../dist')));
+
+// Serve SPA frontend index.html for any other non-API/non-health requests
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Centralised Error Handling Middleware
