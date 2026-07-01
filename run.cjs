@@ -1,7 +1,10 @@
 const { execSync } = require('child_process');
 
-if (process.env.NODE_ENV === 'production') {
-  console.log('[Run Wrapper] Production detected. Starting Express backend...');
+// Detect production / Cloud Run environments
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
+
+if (isProduction) {
+  console.log('[Run Wrapper] Production/Cloud Run detected. Starting Express backend...');
   require('./backend/src/index.js');
 } else {
   console.log('[Run Wrapper] Development detected. Starting concurrently...');

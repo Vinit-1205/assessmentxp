@@ -20,12 +20,13 @@ const dbQueryRoutes = require('./routes/dbQuery');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
 
 // Enable static file serving for local uploads (certificates/snapshots)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Enable CORS for frontend requests (only in non-production environments)
-if (process.env.NODE_ENV !== 'production') {
+if (!isProduction) {
   app.use(cors({
     origin: process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -66,7 +67,6 @@ app.get('*', (req, res, next) => {
 // Centralised Error Handling Middleware
 app.use((err, req, res, next) => {
   console.error('[Global Error Handler]:', err.stack || err);
-  const isProduction = process.env.NODE_ENV === 'production';
   const status = err.status || 500;
   res.status(status).json({
     error: (status === 500 && isProduction) 
