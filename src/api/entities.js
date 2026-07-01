@@ -10,7 +10,7 @@
  *   entities.Exam.filter({ institution_id: id })
  */
 
-import { supabase } from '@/api/supabaseClient';
+import { supabase } from '@/api/dbClient';
 
 /**
  * Parse Base44-style orderBy string (e.g. '-created_date' → { column: 'created_at', ascending: false })

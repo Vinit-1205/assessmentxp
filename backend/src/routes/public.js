@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 
 // ────────────────────────────────────────────────────────────
 // GET /api/verify/:credential_id

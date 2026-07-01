@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/api/supabaseClient";
+import { supabase } from "@/api/dbClient";
 import { entities } from "@/api/entities";
 import { apiClient } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";

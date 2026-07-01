@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "@/api/supabaseClient";
+import { supabase } from "@/api/dbClient";
 import { entities } from "@/api/entities";
 import { apiClient } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";

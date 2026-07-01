@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 
 // Helper: Normalize a domain
 function normalizeDomain(value) {

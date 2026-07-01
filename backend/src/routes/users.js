@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: check if caller has platform admin rights

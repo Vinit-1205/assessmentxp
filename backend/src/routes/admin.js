@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: Ensure the request is coming from a super_admin/admin

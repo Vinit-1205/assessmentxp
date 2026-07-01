@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 const authMiddleware = require('../middleware/auth');
 
 // Configure Nodemailer transporter

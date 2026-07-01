@@ -9,7 +9,7 @@
  */
 
 import axios from 'axios';
-import { supabase } from '@/api/supabaseClient';
+import { supabase } from '@/api/dbClient';
 
 const API_URL = '';
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { jsPDF } = require('jspdf');
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 
 // Helper: Fetch image as Base64 for jsPDF
 async function fetchImageAsBase64(url) {

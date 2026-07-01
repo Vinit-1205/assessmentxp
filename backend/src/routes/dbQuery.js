@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const shim = require('../db/postgresSupabaseShim');
+const shim = require('../db/postgresShim');
 
 // Optional authentication middleware: resolve user if token is present, but do not block if absent
 async function optionalAuth(req, res, next) {

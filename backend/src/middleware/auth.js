@@ -1,4 +1,4 @@
-const supabase = require('../db/postgresSupabaseShim');
+const supabase = require('../db/postgresShim');
 
 module.exports = async function authMiddleware(req, res, next) {
   try {
