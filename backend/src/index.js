@@ -3,7 +3,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Validate database configuration
 if (!process.env.DATABASE_URL && !process.env.PGHOST) {
-  throw new Error("DATABASE_URL or PGHOST environment variable is required");
+  console.warn("WARNING: DATABASE_URL or PGHOST environment variable is not set. Database connections will fail.");
 }
 
 const express = require('express');

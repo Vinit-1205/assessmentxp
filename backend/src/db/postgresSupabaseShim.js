@@ -5,13 +5,13 @@ const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
+const JWT_SECRET = process.env.JWT_SECRET || 'temporary-dev-jwt-secret-replace-in-production';
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET environment variable is not set. Using fallback secret.');
 }
-const API_URL = process.env.API_URL;
-if (!API_URL) {
-  throw new Error('API_URL environment variable is required');
+const API_URL = process.env.API_URL || '';
+if (!process.env.API_URL) {
+  console.warn('WARNING: API_URL environment variable is not set. Reset links in emails will not be fully formed.');
 }
 
 // Mailer configuration using SMTP settings from backend/.env

@@ -4,19 +4,21 @@ const { Pool } = require('pg');
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString && !process.env.PGHOST) {
-  throw new Error("DATABASE_URL or PGHOST environment variable is required");
+  console.warn("WARNING: DATABASE_URL or PGHOST environment variable is not set. Database connections will fail.");
 }
 
 const pool = new Pool(
-  connectionString
-    ? { connectionString }
-    : {
-        host: process.env.PGHOST,
-        user: process.env.PGUSER || 'postgres',
-        password: process.env.PGPASSWORD || 'postgres',
-        database: process.env.PGDATABASE || 'postgres',
-        port: parseInt(process.env.PGPORT || '5432', 10),
-      }
+  (connectionString || process.env.PGHOST)
+    ? (connectionString
+        ? { connectionString }
+        : {
+            host: process.env.PGHOST,
+            user: process.env.PGUSER || 'postgres',
+            password: process.env.PGPASSWORD || 'postgres',
+            database: process.env.PGDATABASE || 'postgres',
+            port: parseInt(process.env.PGPORT || '5432', 10),
+          })
+    : {}
 );
 
 pool.on('error', (err) => {
