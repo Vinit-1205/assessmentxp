@@ -19,7 +19,7 @@ const adminRoutes = require('./routes/admin');
 const dbQueryRoutes = require('./routes/dbQuery');
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
 
 // Enable static file serving for local uploads (certificates/snapshots)
@@ -75,6 +75,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`[Express Backend] Listening on port ${PORT}`);
+// Detailed startup logs
+console.log('[Express Backend] Environment:', process.env.NODE_ENV || 'development');
+console.log('[Express Backend] Service Name:', process.env.K_SERVICE || 'local');
+console.log('[Express Backend] Configured PORT:', PORT);
+
+// Asynchronous database check (does not block server startup)
+const db = require('./db');
+db.query('SELECT NOW()')
+  .then(() => console.log('[Express Backend] Database connection status: SUCCESS'))
+  .catch((err) => console.error('[Express Backend] Database connection status: FAILED. Error:', err.message));
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[Express Backend] Server running on port ${PORT}`);
 });
