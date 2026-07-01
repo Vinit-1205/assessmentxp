@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-if (!API_BASE_URL) {
-  throw new Error('VITE_API_URL environment variable is required');
+const API_URL = import.meta.env.VITE_API_URL;
+if (!API_URL) {
+  throw new Error('VITE_API_URL is not configured');
 }
 
 const authHandlers = [];
@@ -110,7 +110,7 @@ class FrontendQueryBuilder {
     }
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/db-query`, {
+      const response = await axios.post(`${API_URL}/api/db-query`, {
         table: this.table,
         action: this.action,
         selectCols: this.selectCols,
@@ -145,7 +145,7 @@ export const supabase = {
   auth: {
     signUp: async ({ email, password, options }) => {
       try {
-        const response = await axios.post(`${API_BASE_URL}/api/signup-tenant-admin-auth-mock`, {
+        const response = await axios.post(`${API_URL}/api/signup-tenant-admin-auth-mock`, {
           email,
           password,
           options
@@ -158,7 +158,7 @@ export const supabase = {
 
     signInWithPassword: async ({ email, password }) => {
       try {
-        const response = await axios.post(`${API_BASE_URL}/api/signin-auth-mock`, {
+        const response = await axios.post(`${API_URL}/api/signin-auth-mock`, {
           email,
           password
         });
@@ -178,7 +178,7 @@ export const supabase = {
 
     verifyOtp: async ({ email, token, type }) => {
       try {
-        const response = await axios.post(`${API_BASE_URL}/api/verify-otp-auth-mock`, {
+        const response = await axios.post(`${API_URL}/api/verify-otp-auth-mock`, {
           email,
           token,
           type
@@ -199,7 +199,7 @@ export const supabase = {
 
     resend: async ({ type, email }) => {
       try {
-        const response = await axios.post(`${API_BASE_URL}/api/resend-otp-auth-mock`, {
+        const response = await axios.post(`${API_URL}/api/resend-otp-auth-mock`, {
           type,
           email
         });
@@ -211,7 +211,7 @@ export const supabase = {
 
     resetPasswordForEmail: async (email, { redirectTo }) => {
       try {
-        const response = await axios.post(`${API_BASE_URL}/api/reset-password-request-mock`, {
+        const response = await axios.post(`${API_URL}/api/reset-password-request-mock`, {
           email,
           redirectTo
         });
@@ -232,7 +232,7 @@ export const supabase = {
           headers.Authorization = `Bearer ${accessToken}`;
         }
 
-        const response = await axios.post(`${API_BASE_URL}/api/update-user-mock`, {
+        const response = await axios.post(`${API_URL}/api/update-user-mock`, {
           password,
           token
         }, { headers });
@@ -255,7 +255,7 @@ export const supabase = {
         localStorage.setItem('supabase_access_token', access_token);
         
         // Fetch current user details via the mock update endpoint (which returns profile info)
-        const response = await axios.post(`${API_BASE_URL}/api/update-user-mock`, {}, {
+        const response = await axios.post(`${API_URL}/api/update-user-mock`, {}, {
           headers: { Authorization: `Bearer ${access_token}` }
         });
         
