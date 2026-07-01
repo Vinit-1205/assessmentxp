@@ -1,5 +1,5 @@
-require('dotenv').config();
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 // Validate database configuration
 if (!process.env.DATABASE_URL && !process.env.PGHOST) {
@@ -49,6 +49,17 @@ app.use('/api', dbQueryRoutes);
 // Base / Health-check Route
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Serve static assets from the frontend build
+app.use(express.static(path.join(__dirname, '../../dist')));
+
+// Serve SPA frontend index.html for any other non-API/non-health requests
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/health')) {
+    return next();
+  }
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Centralised Error Handling Middleware

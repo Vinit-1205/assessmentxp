@@ -11,10 +11,7 @@
 import axios from 'axios';
 import { supabase } from '@/api/supabaseClient';
 
-const API_URL = import.meta.env.VITE_API_URL;
-if (!API_URL) {
-  throw new Error('VITE_API_URL is not configured');
-}
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 const axiosInstance = axios.create({
   baseURL: `${API_URL}/api`,
