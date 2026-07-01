@@ -135,6 +135,9 @@ export const AuthProvider = ({ children }) => {
                 console.warn('[AuthContext] Failed to check institution status:', e.message);
               }
             }
+          } else if (activeRole === 'candidate') {
+            // Candidate users do not have tenant_user records (only students), but are valid
+            activeRoles = [{ role: 'candidate', institution_id: activeInstitutionId }];
           }
           // else: user has no TenantUser records yet → goes to /setup
         } catch (e) {

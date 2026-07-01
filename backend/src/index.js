@@ -1,11 +1,9 @@
 require('dotenv').config();
+const path = require('path');
 
-// Validate required environment variables at startup
-const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-if (missingEnvVars.length > 0) {
-  console.error(`[FATAL] Missing required environment variables: ${missingEnvVars.join(', ')}`);
-  process.exit(1);
+// Validate database configuration
+if (!process.env.DATABASE_URL && !process.env.PGHOST) {
+  throw new Error("DATABASE_URL or PGHOST environment variable is required");
 }
 
 const express = require('express');
@@ -18,13 +16,18 @@ const usersRoutes = require('./routes/users');
 const violationRoutes = require('./routes/violations');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
+const dbQueryRoutes = require('./routes/dbQuery');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Enable static file serving for local uploads (certificates/snapshots)
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+
 // Enable CORS for frontend requests
+const allowedOrigins = process.env.CLIENT_URL || process.env.FRONTEND_URL || '*';
 app.use(cors({
-  origin: '*', // Adjust in production to frontend domain
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -41,6 +44,7 @@ app.use('/api', usersRoutes);
 app.use('/api', violationRoutes);
 app.use('/api', publicRoutes);
 app.use('/api', adminRoutes);
+app.use('/api', dbQueryRoutes);
 
 // Base / Health-check Route
 app.get('/health', (req, res) => {

@@ -1,11 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = require('../db/postgresSupabaseShim');
 
 // Helper: Normalize a domain
 function normalizeDomain(value) {
@@ -190,9 +185,7 @@ router.post('/login-with-exam-token', async (req, res) => {
     }
 
     // 4. Sign in with the temporary password from backend to retrieve real session
-    const clientSupabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false }
-    });
+    const clientSupabase = supabase;
 
     const { data: signInData, error: signInError } = await clientSupabase.auth.signInWithPassword({
       email: email,
@@ -258,6 +251,65 @@ router.post('/login-with-token', async (req, res) => {
     console.error('[login-with-token] error:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ────────────────────────────────────────────────────────────
+// MOCK AUTH ENDPOINTS FOR FRONTEND CLIENT SHIM
+// ────────────────────────────────────────────────────────────
+
+router.post('/signup-tenant-admin-auth-mock', async (req, res) => {
+  const { email, password, options } = req.body;
+  const result = await supabase.auth.signUp({ email, password, options });
+  res.json(result);
+});
+
+router.post('/signin-auth-mock', async (req, res) => {
+  const { email, password } = req.body;
+  const result = await supabase.auth.signInWithPassword({ email, password });
+  res.json(result);
+});
+
+router.post('/verify-otp-auth-mock', async (req, res) => {
+  const { email, token, type } = req.body;
+  const result = await supabase.auth.verifyOtp({ email, token, type });
+  res.json(result);
+});
+
+router.post('/resend-otp-auth-mock', async (req, res) => {
+  const { type, email } = req.body;
+  const result = await supabase.auth.resend({ type, email });
+  res.json(result);
+});
+
+router.post('/reset-password-request-mock', async (req, res) => {
+  const { email, redirectTo } = req.body;
+  const result = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  res.json(result);
+});
+
+router.post('/update-user-mock', async (req, res) => {
+  const { password, token } = req.body;
+  
+  let userId = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const jwtToken = authHeader.split(' ')[1];
+    const { data: { user } } = await supabase.auth.getUser(jwtToken);
+    if (user) {
+      userId = user.id;
+    }
+  }
+
+  let result;
+  if (token) {
+    result = await supabase.auth.updateUser({ password }, token);
+  } else if (userId) {
+    result = await supabase.auth.admin.updateUserById(userId, { password });
+  } else {
+    result = { data: null, error: { message: 'Unauthorized: Missing token or session' } };
+  }
+  
+  res.json(result);
 });
 
 module.exports = router;

@@ -1,14 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('[auth middleware] Missing Supabase URL or Service Role Key in environment variables');
-}
-
-// Initialise the service role client so we can verify sessions and fetch metadata securely
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = require('../db/postgresSupabaseShim');
 
 module.exports = async function authMiddleware(req, res, next) {
   try {

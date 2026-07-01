@@ -1,13 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { jsPDF } = require('jspdf');
-const { createClient } = require('@supabase/supabase-js');
-const authMiddleware = require('../middleware/auth');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = require('../db/postgresSupabaseShim');
 
 // Helper: Fetch image as Base64 for jsPDF
 async function fetchImageAsBase64(url) {

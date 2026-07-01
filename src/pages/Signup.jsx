@@ -69,6 +69,7 @@ export default function Signup() {
 
       console.log("[Signup] Logged-in session confirmed");
 
+      const loggedInUser = signInData?.user;
       if (!loggedInUser) {
         throw new Error("Login did not establish a session. Please try again.");
       }
