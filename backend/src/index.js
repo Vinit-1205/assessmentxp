@@ -1,3 +1,4 @@
+const systemPort = process.env.PORT;
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
@@ -19,7 +20,7 @@ const adminRoutes = require('./routes/admin');
 const dbQueryRoutes = require('./routes/dbQuery');
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = systemPort || process.env.PORT || 4000;
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
 
 // Enable static file serving for local uploads (certificates/snapshots)
