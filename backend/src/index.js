@@ -19,7 +19,7 @@ const adminRoutes = require('./routes/admin');
 const dbQueryRoutes = require('./routes/dbQuery');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 4000;
 const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
 
 // Enable static file serving for local uploads (certificates/snapshots)
